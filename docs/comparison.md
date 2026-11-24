@@ -1,11 +1,26 @@
-# Side-by-Side Comparison: Upstream Shirudo vs. Upstream Inspektor Gadget (`v0.58.0`)
+# Side-by-Side Comparison: Upstream Shirudo vs. Stock Upstream Inspektor Gadget
 
-This document compares two distinct Linux eBPF and runtime projects evaluated against the same five control scenarios on two separate isolated Azure West US 3 `Standard_D4ds_v5` target VMs provisioned from the exact Canonical Ubuntu 26.04 LTS base image (`26.04.202611100`):
+## Plain-English Summary: What I Tested and What Happened
 
-1. **Upstream Shirudo** ([`shirudo-dev/shirudo`](https://github.com/shirudo-dev/shirudo) at revision [`ff5dd643ac0b3d68310450a2cb9b668416eac036`](https://github.com/shirudo-dev/shirudo/tree/ff5dd643ac0b3d68310450a2cb9b668416eac036) plus two disclosed Azure compatibility patches in [`johnsonshi/shirudo-on-azure`](https://github.com/johnsonshi/shirudo-on-azure/tree/a989c9e7551be2059f9bb3f8ee16b3965e7bd373)), running custom kernel `7.4-shirudo-azure-20261124` (`CONFIG_LSM="bpf"`, observed active LSMs `capability,bpf`) with **vTPM on** and **Secure Boot off** (`secure_boot = false`).
-2. **Upstream Inspektor Gadget** ([`inspektor-gadget/inspektor-gadget`](https://github.com/inspektor-gadget/inspektor-gadget) at official release [`v0.58.0`](https://github.com/inspektor-gadget/inspektor-gadget/releases/tag/v0.58.0), source commit [`461906a52de982c1b1ad80f9c2faaa9595c47550`](https://github.com/inspektor-gadget/inspektor-gadget/tree/461906a52de982c1b1ad80f9c2faaa9595c47550)), a [CNCF Sandbox project](https://www.cncf.io/projects/inspektor-gadget/) (distinct from this independent `IG-Shield` repository), running on a separate `Standard_D4ds_v5` Ubuntu 26.04 (`26.04.202611100`) target VM with stock Azure kernel `7.0.0-1021-azure` (`af_alg_restrict = null`, no `/proc/sys/crypto/af_alg_restrict` sysctl file), **Secure Boot on**, **vTPM on**, and an isolated NIC NSG whose first inbound rule denies all traffic (`inbound = "deny_all"`).
+I asked a live PHP web worker to write two new files containing the same harmless text: `canary.php` and `canary.txt`. On my Shirudo VM, while its web-sandbox rule was loaded, `canary.php` got "Permission denied" and `canary.txt` was written; after I unloaded that rule, the worker could write both files again. On a second VM running stock Inspektor Gadget, the file tracer named the PHP worker process that opened both `canary.php` and `canary.txt`, and both writes succeeded there. Upstream Inspektor Gadget supplies those open-source file-watching tools, while this `IG-Shield` repository is my Azure experiment testing them alongside Shirudo.
 
-**Framing:** `IG-Shield` is not meant to compete with Shirudo, and it uses no custom gadget to replace missing enforcement capabilities. Instead, Shirudo inspired me to test what stock upstream Inspektor Gadget (`v0.58.0`) and its community catalog of gadgets can observe, what they can advise or audit, and what they do not cover across the exact same five control surfaces.
+Seeing that successful open on a standard kernel helps an operator verify whether a live service legitimately writes `.php` files before turning on a blocking rule that could break the app. For the companion enforcement walkthrough, see [Shirudo-on-Azure](https://github.com/johnsonshi/shirudo-on-azure#readme).
+
+Here is the side-by-side outcome across all five scenarios on the two VMs:
+
+| Scenario | What I Asked the App to Do | On the Inspektor Gadget VM (Observation & Advice) | On the Companion Shirudo VM (Inline Blocking) |
+| :--- | :--- | :--- | :--- |
+| **1. PHP worker file creation** | Write `canary.php` and `canary.txt` (plus read a deliberately missing `absent.txt` file on the IG VM). | Both `canary.php` and `canary.txt` were written before, during, and after tracing (while the missing file returned "No such file or directory"). `trace_open` logged the worker opening both files. | Both files were written before loading the rule. While `app-sandbox` was loaded, `canary.php` was refused with "Permission denied" while `canary.txt` was written. After unloading the rule, both files were written again. |
+| **2. Live Java Base64 decode** | Decode the valid Base64 string `"Y29udHJvbA=="` into `"control"`. | The Java program decoded `"control"` in all three steps. `trace_exec` logged that the `java` process started, without seeing the decoded text inside the JVM. | A single running JVM decoded `"control"` before attach, kept the same process ID across explicit attachment of the pre-existing Java agent, and continued decoding `"control"` afterward. |
+| **3. Java in-memory database queries** | Run an ordinary read (`SELECT 7`) and a harmless false condition (`SELECT 7 WHERE 8 > 3 AND 4 = 5`). | Both queries succeeded in all three steps (`7` and empty result). `trace_exec` logged the `java` process start and did not inspect SQL inside the JVM. | The ordinary read (`SELECT 7`) returned `7` in every step. The harmless policy-matching query returned empty before loading the rule, was refused by the JDBC agent while loaded, and returned empty again after unload. |
+| **4. Local and crypto socket creation** | Create and close local Unix sockets and Linux kernel crypto sockets (`AF_ALG`). | Both socket types succeeded before, during, and after tracing. When stopped, `traceloop` reported all 18 Unix and 18 crypto socket calls. | Both socket types succeeded before loading the rule. While loaded, the kernel crypto socket (`AF_ALG`) was refused with "Operation not permitted" while Unix sockets still succeeded. After unload, both succeeded again. |
+| **5. Security policy suggestion & signed rules** | Watch system calls during the run (IG) or load and unload a signed kernel probe (Shirudo). | `advise_seccomp` printed a suggested system-call allowlist from the calls it saw. Nobody turned that suggested policy on, and nothing was blocked. | The kernel verified a signed BPF probe against its boot keyring, loaded and unloaded it cleanly, and recorded both transitions in the VM's virtual TPM. |
+
+**Jump to deeper sections on this page:**
+- [1. Architectural, Trust, and Enforcement Comparison](#1-architectural-trust-and-enforcement-comparison)
+- [2. Control-by-Control Technical Reference Table](#2-control-by-control-capability--receipt-comparison)
+- [3. Performance & Timing Methodology Comparison](#3-performance--timing-methodology-comparison)
+- [4. Technical Setup, Comparison Limits & Reproducibility Locks](#4-technical-setup-comparison-limits--reproducibility-locks)
 
 ![Side-by-side architectural and operational boundaries between upstream Shirudo and upstream Inspektor Gadget v0.58.0](figures/ig-vs-shirudo-boundaries.svg)
 
@@ -13,25 +28,7 @@ This document compares two distinct Linux eBPF and runtime projects evaluated ag
 
 ---
 
-## 1. Primary Evidence & Reproducibility Pins
-
-Every measured claim in this comparison is anchored to committed JSON receipts and pinned upstream source trees:
-
-- **Phase 1 Upstream Shirudo Receipts (`johnsonshi/shirudo-on-azure` at [`a989c9e7551be2059f9bb3f8ee16b3965e7bd373`](https://github.com/johnsonshi/shirudo-on-azure/tree/a989c9e7551be2059f9bb3f8ee16b3965e7bd373)):**
-  - Run 1 (minimal fixed local fixtures): [`docs/results/azure-controls.json`](https://github.com/johnsonshi/shirudo-on-azure/blob/a989c9e7551be2059f9bb3f8ee16b3965e7bd373/docs/results/azure-controls.json)
-  - Run 2 (genuine Ubuntu 26.04 `php8.5-fpm` `8.5.4-0ubuntu1.6`, `libargon2-1` `0~20190702+dfsg-5`, and `libh2-java` `2.2.220-1build1` packages): [`docs/results/azure-controls-real-runtimes.json`](https://github.com/johnsonshi/shirudo-on-azure/blob/a989c9e7551be2059f9bb3f8ee16b3965e7bd373/docs/results/azure-controls-real-runtimes.json)
-  - Post-measurement `crypto.af_alg_restrict` housekeeping (`0` restored to `1`): [`docs/results/azure-af-alg-restoration.json`](https://github.com/johnsonshi/shirudo-on-azure/blob/a989c9e7551be2059f9bb3f8ee16b3965e7bd373/docs/results/azure-af-alg-restoration.json)
-  - Pinned control fixtures and runner: [`demos/controls/README.md`](https://github.com/johnsonshi/shirudo-on-azure/blob/a989c9e7551be2059f9bb3f8ee16b3965e7bd373/demos/controls/README.md), [`demos/controls/Control.java`](https://github.com/johnsonshi/shirudo-on-azure/blob/a989c9e7551be2059f9bb3f8ee16b3965e7bd373/demos/controls/Control.java), [`demos/controls/target.py`](https://github.com/johnsonshi/shirudo-on-azure/blob/a989c9e7551be2059f9bb3f8ee16b3965e7bd373/demos/controls/target.py), and [`demos/controls/distro.py`](https://github.com/johnsonshi/shirudo-on-azure/blob/a989c9e7551be2059f9bb3f8ee16b3965e7bd373/demos/controls/distro.py)
-- **Phase 2 Upstream Inspektor Gadget Pin & Engineering Paths (`IG-Shield`):**
-  - Upstream Inspektor Gadget release tag: [`v0.58.0`](https://github.com/inspektor-gadget/inspektor-gadget/releases/tag/v0.58.0) (source commit [`461906a52de982c1b1ad80f9c2faaa9595c47550`](https://github.com/inspektor-gadget/inspektor-gadget/tree/461906a52de982c1b1ad80f9c2faaa9595c47550))
-  - Four pinned stock OCI gadgets: `trace_open`, `trace_exec`, `traceloop`, and `advise_seccomp`
-  - Tracked engineering pin manifest: [`../lab/pins.json`](../lab/pins.json) (SHA-256 `3d5b3bbdde7ac19500d5813322043506ac8bab12fdcea481d5ed92e551202ec4`)
-  - Tracked Azure validation runner: [`../lab/azure.py`](../lab/azure.py)
-  - Measured Inspektor Gadget Azure receipt: [`results/ig-azure.json`](results/ig-azure.json) (SHA-256 `baf2fd48515636917e820a731ded92adfd79e87bbea0e5a54d607038b18450cb`)
-
----
-
-## 2. Architectural, Trust, and Enforcement Comparison
+## 1. Architectural, Trust, and Enforcement Comparison
 
 The table below separates VM boot policies, kernel prerequisites, distinct trust layers, and runtime mechanisms between the two setups.
 
@@ -48,7 +45,7 @@ The table below separates VM boot policies, kernel prerequisites, distinct trust
 
 ---
 
-## 3. Control-by-Control Capability & Receipt Comparison
+## 2. Control-by-Control Capability & Receipt Comparison
 
 The diagram and table below map the five Phase 1 controls from [`docs/results/azure-controls.json`](https://github.com/johnsonshi/shirudo-on-azure/blob/a989c9e7551be2059f9bb3f8ee16b3965e7bd373/docs/results/azure-controls.json) (Run 1: fixed fixtures) and [`docs/results/azure-controls-real-runtimes.json`](https://github.com/johnsonshi/shirudo-on-azure/blob/a989c9e7551be2059f9bb3f8ee16b3965e7bd373/docs/results/azure-controls-real-runtimes.json) (Run 2: real Ubuntu PHP-FPM and H2 JDBC packages) against the four pinned stock `v0.58.0` Inspektor Gadget gadgets (`trace_open`, `trace_exec`, `traceloop`, `advise_seccomp`) and upstream `v0.58.0` source definitions. These capability statements are specific to these stock `v0.58.0` gadgets (`461906a52de982c1b1ad80f9c2faaa9595c47550`), not a blanket assertion about all third-party community gadgets.
 
@@ -66,7 +63,7 @@ The diagram and table below map the five Phase 1 controls from [`docs/results/az
 
 ---
 
-## 4. Performance & Timing Methodology Comparison
+## 3. Performance & Timing Methodology Comparison
 
 When reading the timing fields across [`docs/results/azure-controls.json`](https://github.com/johnsonshi/shirudo-on-azure/blob/a989c9e7551be2059f9bb3f8ee16b3965e7bd373/docs/results/azure-controls.json), [`docs/results/azure-controls-real-runtimes.json`](https://github.com/johnsonshi/shirudo-on-azure/blob/a989c9e7551be2059f9bb3f8ee16b3965e7bd373/docs/results/azure-controls-real-runtimes.json), and [`results/ig-azure.json`](results/ig-azure.json), four measurement boundaries must stay explicit:
 
@@ -77,3 +74,29 @@ When reading the timing fields across [`docs/results/azure-controls.json`](https
    - **File `open`/`write`/`close` with `trace_open` OFF (`timing.off`):** min **10,508 ns**, median **14,722 ns**, max **101,276 ns**
    - **File `open`/`write`/`close` with `trace_open` ON (`timing.on`):** min **23,407 ns**, median **28,475 ns**, max **102,236 ns**
    - **Start of fixture call to first matching CLI output line (`timing.first_open_event`):** min **54,052 ns**, median **95,328 ns**, max **152,555 ns** (this measures end-to-end userspace CLI line delivery from the start of the fixture call, not just in-kernel eBPF execution latency).
+
+---
+
+## 4. Technical Setup, Comparison Limits & Reproducibility Locks
+
+### Comparison limits between the two Azure VMs
+
+Both setups ran on isolated Azure West US 3 `Standard_D4ds_v5` VMs built from the same Canonical Ubuntu 26.04 LTS base image (`26.04.202611100`), with three important setup differences:
+
+- **Container baseline `seccomp_mode: 2` vs. the unapplied `advise_seccomp` suggestion:** In [`results/ig-azure.json`](results/ig-azure.json), `seccomp_mode: 2` simply records that the test container already had Docker's normal baseline security restrictions active when it started. The new system-call policy that `advise_seccomp` suggested during the run (`SCMP_ACT_ERRNO` allowing `openat` and `socket`) was never turned on (`applied: false`).
+- **Linux crypto socket setting (`af_alg_restrict`):** `crypto.af_alg_restrict` controls who can use part of Linux's kernel crypto socket interface (`AF_ALG`). The stock Azure kernel on the Inspektor Gadget VM did not expose that setting at all (`af_alg_restrict: null`). On the Shirudo VM, both control runs took place while `crypto.af_alg_restrict` had a temporary lab value of `0` (which is not a recommended default); post-run housekeeping ([`azure-af-alg-restoration.json`](https://github.com/johnsonshi/shirudo-on-azure/blob/a989c9e7551be2059f9bb3f8ee16b3965e7bd373/docs/results/azure-af-alg-restoration.json)) confirmed the kernel source default is `1` and restored it from `0` to `1` without re-probing (`probe_rerun_after_restoration: false`).
+- **When PHP-FPM starts vs. when the tool attaches:** On the Inspektor Gadget VM, the PHP-FPM worker is already running inside the networkless container (pinned to `vCPU 0`) before `trace_open` attaches. On the Shirudo VM, `app-sandbox` attaches when `php-fpm` first executes after the rule is loaded (`first_exec_after_load: true`).
+
+### Committed result files (receipts) and upstream pins
+
+- **Phase 1 Upstream Shirudo Saved Results (`johnsonshi/shirudo-on-azure` at [`a989c9e7551be2059f9bb3f8ee16b3965e7bd373`](https://github.com/johnsonshi/shirudo-on-azure/tree/a989c9e7551be2059f9bb3f8ee16b3965e7bd373), upstream [`shirudo-dev/shirudo@ff5dd643ac0b3d68310450a2cb9b668416eac036`](https://github.com/shirudo-dev/shirudo/tree/ff5dd643ac0b3d68310450a2cb9b668416eac036)):**
+  - Run 1 (minimal fixed local fixtures): [`docs/results/azure-controls.json`](https://github.com/johnsonshi/shirudo-on-azure/blob/a989c9e7551be2059f9bb3f8ee16b3965e7bd373/docs/results/azure-controls.json)
+  - Run 2 (real Ubuntu 26.04 `php8.5-fpm` `8.5.4-0ubuntu1.6`, `libargon2-1` `0~20190702+dfsg-5`, and `libh2-java` `2.2.220-1build1` packages): [`docs/results/azure-controls-real-runtimes.json`](https://github.com/johnsonshi/shirudo-on-azure/blob/a989c9e7551be2059f9bb3f8ee16b3965e7bd373/docs/results/azure-controls-real-runtimes.json)
+  - Post-measurement `crypto.af_alg_restrict` restoration (`0` restored to kernel source default `1` without re-probing): [`docs/results/azure-af-alg-restoration.json`](https://github.com/johnsonshi/shirudo-on-azure/blob/a989c9e7551be2059f9bb3f8ee16b3965e7bd373/docs/results/azure-af-alg-restoration.json)
+  - Pinned control fixtures and runner: [`demos/controls/README.md`](https://github.com/johnsonshi/shirudo-on-azure/blob/a989c9e7551be2059f9bb3f8ee16b3965e7bd373/demos/controls/README.md), [`demos/controls/Control.java`](https://github.com/johnsonshi/shirudo-on-azure/blob/a989c9e7551be2059f9bb3f8ee16b3965e7bd373/demos/controls/Control.java), [`demos/controls/target.py`](https://github.com/johnsonshi/shirudo-on-azure/blob/a989c9e7551be2059f9bb3f8ee16b3965e7bd373/demos/controls/target.py), and [`demos/controls/distro.py`](https://github.com/johnsonshi/shirudo-on-azure/blob/a989c9e7551be2059f9bb3f8ee16b3965e7bd373/demos/controls/distro.py)
+- **Phase 2 Upstream Inspektor Gadget Saved Results & Pins (`IG-Shield`):**
+  - Upstream Inspektor Gadget release tag: [`v0.58.0`](https://github.com/inspektor-gadget/inspektor-gadget/releases/tag/v0.58.0) (source commit [`461906a52de982c1b1ad80f9c2faaa9595c47550`](https://github.com/inspektor-gadget/inspektor-gadget/tree/461906a52de982c1b1ad80f9c2faaa9595c47550))
+  - Four pinned stock OCI gadgets: `trace_open`, `trace_exec`, `traceloop`, and `advise_seccomp`
+  - Tracked artifact digest lock: [`../lab/pins.json`](../lab/pins.json) (SHA-256 `3d5b3bbdde7ac19500d5813322043506ac8bab12fdcea481d5ed92e551202ec4`)
+  - Tracked Azure runner and offline verifier: [`../lab/azure.py`](../lab/azure.py) and [`../lab/receipt.py`](../lab/receipt.py)
+  - Saved results from the Inspektor Gadget Azure run: [`results/ig-azure.json`](results/ig-azure.json) (SHA-256 `baf2fd48515636917e820a731ded92adfd79e87bbea0e5a54d607038b18450cb`)
