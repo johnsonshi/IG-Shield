@@ -1,0 +1,146 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 1080" width="880" height="1080" role="img" aria-labelledby="title desc">
+  <title id="title">How Shirudo Inspires IG-Shield: Enforcement vs. Observability Boundaries</title>
+  <desc id="desc">Side-by-side comparison of shared kernel and JVM hook surfaces, upstream Shirudo (ff5dd643) signed kernel BPF and Java shields on Azure, and upstream Inspektor Gadget v0.58.0 (CNCF Sandbox) four pinned stock gadgets (trace_open, trace_exec, traceloop, advise_seccomp).</desc>
+  <defs>
+    <style>
+      .bg { fill: #f8fafc; }
+      .title { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 24px; font-weight: 700; fill: #0f172a; }
+      .subtitle { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 14.5px; font-weight: 500; fill: #475569; }
+      .sec-title { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 16px; font-weight: 700; fill: #0f172a; }
+      .card-title { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 13.8px; font-weight: 700; fill: #0f172a; }
+      .card-body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 12.2px; font-weight: 400; fill: #334155; }
+      .card-mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 12px; font-weight: 600; fill: #0f172a; }
+      .badge-text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 12px; font-weight: 700; }
+      .footer-note { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 13px; font-weight: 500; fill: #334155; }
+    </style>
+    <marker id="arrow-green" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#059669" />
+    </marker>
+    <marker id="arrow-amber" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#d97706" />
+    </marker>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="880" height="1080" rx="14" />
+
+  <!-- Header -->
+  <text class="title" x="440" y="42" text-anchor="middle">How Shirudo Inspires IG-Shield: Enforcement vs. Observability</text>
+  <text class="subtitle" x="440" y="66" text-anchor="middle">Comparing upstream Shirudo (ff5dd643) signed mitigations and upstream Inspektor Gadget v0.58.0 (CNCF Sandbox)</text>
+
+  <!-- Top Section: Shared Kernel & Runtime Hook Surfaces -->
+  <rect x="28" y="86" width="824" height="176" rx="12" fill="#eff6ff" stroke="#2563eb" stroke-width="2" />
+  <text class="sec-title" x="48" y="114">1. Shared Linux Kernel &amp; Runtime Control Surfaces</text>
+
+  <!-- Hook Box 1 -->
+  <rect x="46" y="128" width="252" height="118" rx="8" fill="#ffffff" stroke="#93c5fd" stroke-width="1.5" />
+  <text class="card-title" x="62" y="152">Process &amp; File Hooks</text>
+  <text class="card-mono" x="62" y="174">execve / openat / file_open</text>
+  <text class="card-mono" x="62" y="194">inode_create / inode_rename</text>
+  <text class="card-body" x="62" y="216">Used by app-sandbox</text>
+  <text class="card-body" x="62" y="234">(canary.php vs canary.txt creates)</text>
+
+  <!-- Hook Box 2 -->
+  <rect x="314" y="128" width="252" height="118" rx="8" fill="#ffffff" stroke="#93c5fd" stroke-width="1.5" />
+  <text class="card-title" x="330" y="152">Kernel Entry &amp; Socket Hooks</text>
+  <text class="card-mono" x="330" y="174">fentry/do_nanosleep (basic)</text>
+  <text class="card-mono" x="330" y="194">lsm/socket_create (AF_ALG)</text>
+  <text class="card-body" x="330" y="216">Unbound AF_ALG vs AF_UNIX</text>
+  <text class="card-body" x="330" y="234">socket create &amp; close probes</text>
+
+  <!-- Hook Box 3 -->
+  <rect x="582" y="128" width="252" height="118" rx="8" fill="#ffffff" stroke="#93c5fd" stroke-width="1.5" />
+  <text class="card-title" x="598" y="152">Userspace JVM Runtime</text>
+  <text class="card-mono" x="598" y="174">Base64$Decoder.decode0</text>
+  <text class="card-mono" x="598" y="194">java.sql.Statement.execute*</text>
+  <text class="card-body" x="598" y="216">Inside-JVM bytecode methods</text>
+  <text class="card-body" x="598" y="234">(not kernel syscall hooks)</text>
+
+  <!-- Connector Arrows -->
+  <line x1="228" y1="262" x2="228" y2="294" stroke="#059669" stroke-width="2.5" marker-end="url(#arrow-green)" />
+  <line x1="652" y1="262" x2="652" y2="294" stroke="#d97706" stroke-width="2.5" marker-end="url(#arrow-amber)" />
+
+  <!-- Left Column: Upstream Shirudo -->
+  <rect x="28" y="298" width="400" height="678" rx="12" fill="#ecfdf5" stroke="#059669" stroke-width="2" />
+  <text class="sec-title" x="48" y="328">2. Upstream Shirudo (ff5dd643 + 2 Patches)</text>
+  <rect x="48" y="338" width="236" height="24" rx="12" fill="#059669" />
+  <text class="badge-text" x="166" y="354" fill="#ffffff" text-anchor="middle">Synchronous Inline Enforcement</text>
+
+  <!-- Shirudo Card A -->
+  <rect x="46" y="376" width="364" height="132" rx="8" fill="#ffffff" stroke="#6ee7b7" stroke-width="1.5" />
+  <text class="card-title" x="60" y="400">Target VM, Kernel &amp; Boot Trust Boundary</text>
+  <text class="card-body" x="60" y="422">• D4ds_v5 Ubuntu 26.04 (26.04.202611100); vTPM on,</text>
+  <text class="card-body" x="60" y="440">  Secure Boot off; kernel 7.4-shirudo-azure-20261124</text>
+  <text class="card-body" x="60" y="460">• CI profile CONFIG_LSM="bpf" (observed capability,bpf)</text>
+  <text class="card-body" x="60" y="480">• Initrd seals .bpf &amp; .dm-verity keyrings; RSA-2048 NV</text>
+  <text class="card-body" x="60" y="498">  writer; separate Azure RBAC TOFU AK (PCR 13 checked)</text>
+
+  <!-- Shirudo Card B -->
+  <rect x="46" y="522" width="364" height="148" rx="8" fill="#ffffff" stroke="#6ee7b7" stroke-width="1.5" />
+  <text class="card-title" x="60" y="546">Signed Kernel BPF Upatches (In-Kernel Loader)</text>
+  <text class="card-body" x="60" y="568">• basic (fentry/do_nanosleep): absent -&gt; loaded -&gt; absent</text>
+  <text class="card-body" x="60" y="586">  (752.3/732.0 ms Run 1; 800.6/731.9 ms Run 2 incl. TPM)</text>
+  <text class="card-body" x="60" y="606">• app-sandbox: canary.php EACCES, canary.txt written</text>
+  <text class="card-body" x="60" y="626">• cve-2026-31431-af-alg-block: AF_ALG EPERM (1,446 /</text>
+  <text class="card-body" x="60" y="646">  1,442 ns median, n=15); AF_UNIX allowed (at sysctl 0)</text>
+
+  <!-- Shirudo Card C -->
+  <rect x="46" y="684" width="364" height="132" rx="8" fill="#ffffff" stroke="#6ee7b7" stroke-width="1.5" />
+  <text class="card-title" x="60" y="708">Userspace Java Upatches (/run/shirudo-java)</text>
+  <text class="card-body" x="60" y="730">• Verified by /run/shirudo/runtime; sealed JARs</text>
+  <text class="card-body" x="60" y="750">• java-base64: preserved pre-existing JAR; same JVM</text>
+  <text class="card-body" x="60" y="768">  PID/start decodes Y29udHJvbA== to control (continuity)</text>
+  <text class="card-body" x="60" y="788">• java-sql-inj: SELECT 7 -&gt; 7; false predicate -&gt; exception</text>
+
+  <!-- Shirudo Card D -->
+  <rect x="46" y="830" width="364" height="128" rx="8" fill="#d1fae5" stroke="#059669" stroke-width="1.5" />
+  <text class="card-title" x="60" y="854">Operational Tradeoff</text>
+  <text class="card-body" x="60" y="876">• Requires custom kernel + initrd keyring sealing + vTPM</text>
+  <text class="card-body" x="60" y="896">• Pinned lsm/bpf denies unsigned third-party host BPF</text>
+  <text class="card-body" x="60" y="916">• Purpose-built for signed temporary mitigations, not</text>
+  <text class="card-body" x="60" y="936">  an interactive fleet-wide observability catalog</text>
+
+  <!-- Right Column: Upstream Inspektor Gadget -->
+  <rect x="452" y="298" width="400" height="678" rx="12" fill="#fffbeb" stroke="#d97706" stroke-width="2" />
+  <text class="sec-title" x="472" y="328">3. Upstream Inspektor Gadget v0.58.0 (Stock)</text>
+  <rect x="472" y="338" width="256" height="24" rx="12" fill="#d97706" />
+  <text class="badge-text" x="600" y="354" fill="#ffffff" text-anchor="middle">Asynchronous Telemetry &amp; Advising</text>
+
+  <!-- IG Card A -->
+  <rect x="470" y="376" width="364" height="132" rx="8" fill="#ffffff" stroke="#fcd34d" stroke-width="1.5" />
+  <text class="card-title" x="484" y="400">Separate Target VM &amp; Userspace Trust Layers</text>
+  <text class="card-body" x="484" y="422">• D4ds_v5 Ubuntu 26.04 (26.04.202611100); stock kernel</text>
+  <text class="card-body" x="484" y="440">  7.0.0-1021-azure (no af_alg_restrict file), Secure Boot on</text>
+  <text class="card-body" x="484" y="460">• Binary archive: GitHub release attestation (release/v0.2)</text>
+  <text class="card-body" x="484" y="480">• OCI gadgets: default cosign check vs official IG key</text>
+  <text class="card-body" x="484" y="498">  (distinct from OCI digest pins or TPM state quotes)</text>
+
+  <!-- IG Card B -->
+  <rect x="470" y="522" width="364" height="148" rx="8" fill="#ffffff" stroke="#fcd34d" stroke-width="1.5" />
+  <text class="card-title" x="484" y="546">Measured Stock v0.58.0 Gadgets (ig-azure.json)</text>
+  <text class="card-body" x="484" y="568">• trace_open: canary.php=1, canary.txt=1, ENOENT=1</text>
+  <text class="card-body" x="484" y="586">  (14,722 ns OFF vs 28,475 ns ON; 95,328 ns CLI median)</text>
+  <text class="card-body" x="484" y="606">• trace_exec: 1 JVM exec (decode/SQL values separate)</text>
+  <text class="card-body" x="484" y="626">• traceloop: 18 AF_UNIX &amp; 18 AF_ALG returns (9,347 ns ON)</text>
+  <text class="card-body" x="484" y="646">• advise_seccomp: suggests openat &amp; socket (not applied)</text>
+
+  <!-- IG Card C -->
+  <rect x="470" y="684" width="364" height="132" rx="8" fill="#ffffff" stroke="#fcd34d" stroke-width="1.5" />
+  <text class="card-title" x="484" y="708">Source-Confirmed v0.58.0 Stock Boundaries</text>
+  <text class="card-body" x="484" y="730">• advise_seccomp &amp; audit_seccomp do not deny syscalls</text>
+  <text class="card-body" x="484" y="750">• Reference trace_lsm exports time, proc, hook (has</text>
+  <text class="card-body" x="484" y="768">  file_open, no socket_create/AF/errno; returns 0)</text>
+  <text class="card-body" x="484" y="788">• No inside-JVM Base64 or JDBC Statement bytecode guard</text>
+
+  <!-- IG Card D -->
+  <rect x="470" y="830" width="364" height="128" rx="8" fill="#fef3c7" stroke="#d97706" stroke-width="1.5" />
+  <text class="card-title" x="484" y="854">Operational Tradeoff</text>
+  <text class="card-body" x="484" y="876">• Runs immediately on stock kernels with Secure Boot on</text>
+  <text class="card-body" x="484" y="896">• Rich OCI catalog for syscall &amp; file-open visibility</text>
+  <text class="card-body" x="484" y="916">• Observability and advising only; relies on external</text>
+  <text class="card-body" x="484" y="936">  seccomp, LSM policies, or Shirudo to block inline</text>
+
+  <!-- Footer Summary Box -->
+  <rect x="28" y="992" width="824" height="64" rx="10" fill="#f1f5f9" stroke="#64748b" stroke-width="1.5" />
+  <text class="footer-note" x="440" y="1020" text-anchor="middle">Why Shirudo inspires IG-Shield: Shirudo shows where high-value kernel and runtime boundaries sit;</text>
+  <text class="footer-note" x="440" y="1042" text-anchor="middle">upstream Inspektor Gadget lets operators inspect OS boundaries on stock kernels before or alongside enforcement.</text>
+</svg>

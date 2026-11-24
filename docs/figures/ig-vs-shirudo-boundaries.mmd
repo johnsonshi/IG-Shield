@@ -1,0 +1,34 @@
+flowchart TB
+    subgraph HOOKS["1. Shared Control Surfaces Across the Five Scenarios"]
+        direction LR
+        H1["Process & File Syscalls / LSM<br/>execve & file open / create<br/>Used by app-sandbox<br/>(canary.php vs canary.txt)"]
+        H2["Socket & Syscall Flight Path<br/>do_nanosleep (basic)<br/>socket(AF_ALG vs AF_UNIX)<br/>Unbound create & close"]
+        H3["Userspace JVM Runtime<br/>Base64$Decoder.decode0 &<br/>JDBC Statement.execute*<br/>Inside-JVM bytecode methods"]
+    end
+
+    subgraph SHIRUDO["2. Upstream Shirudo (ff5dd643 + 2 Azure Compatibility Patches)"]
+        direction TB
+        S1["Target VM: D4ds_v5, Ubuntu 26.04 (26.04.202611100),<br/>kernel 7.4-shirudo-azure-20261124 (CONFIG_LSM=bpf),<br/>vTPM on, Secure Boot off, initrd-sealed .bpf & .dm-verity,<br/>RSA-2048 NV writer, separate Azure RBAC TOFU AK"]
+        S2["Signed Kernel BPF Upatches (727.4 to 800.6 ms CLI load/unload):<br/>• basic (fentry/do_nanosleep): absent -> loaded -> absent<br/>• app-sandbox: canary.php EACCES, canary.txt written<br/>• cve-2026-31431-af-alg-block: AF_ALG EPERM (1,446 / 1,442 ns<br/>  median, n=15), AF_UNIX allowed (at pre-existing sysctl 0)"]
+        S3["Signed Userspace Java Upatches (sealed under /run/shirudo-java):<br/>• java-base64: preserved pre-existing JAR, explicit attach to<br/>  same JVM PID/start decoding Y29udHJvbA== to control<br/>• java-sql-inj: new JVM with sealed agent; SELECT 7 -> 7,<br/>  harmless false predicate empty -> policy-exception -> empty"]
+        S1 --> S2 --> S3
+    end
+
+    subgraph IG["3. Upstream Inspektor Gadget v0.58.0 (CNCF Sandbox, Commit 461906a5)"]
+        direction TB
+        G1["Target VM: Separate D4ds_v5, Ubuntu 26.04 (26.04.202611100),<br/>stock kernel 7.0.0-1021-azure (no af_alg_restrict sysctl),<br/>Secure Boot on, vTPM on, NSG inbound deny-all.<br/>Trust: release/v0.2 archive attestation, default cosign check, OCI pins"]
+        G2["Four Pinned Stock v0.58.0 Gadgets (docs/results/ig-azure.json):<br/>• trace_open: canary.php=1, canary.txt=1, ENOENT=1 (both written;<br/>  open/write/close median 14,722 ns OFF vs 28,475 ns ON; 95,328 ns CLI)<br/>• trace_exec: 1 JVM exec event (decode/SQL values stay separate)<br/>• traceloop: 18 AF_UNIX & 18 AF_ALG returns (AF_ALG 2,483/9,347/2,848 ns)<br/>• advise_seccomp: SCMP_ACT_ERRNO allowing openat & socket (applied=false)"]
+        G3["Source & Runtime Boundary: Zero inline denials; reference trace_lsm<br/>has file_open, no socket_create/AF/errno, returns 0; no inside-JVM<br/>bytecode guard, kernel keyring seal, or TPM state quote"]
+        G1 --> G2 --> G3
+    end
+
+    HOOKS --> SHIRUDO
+    HOOKS --> IG
+
+    classDef surface fill:#eff6ff,stroke:#2563eb,stroke-width:2px,color:#0f172a
+    classDef shirudo fill:#ecfdf5,stroke:#059669,stroke-width:2px,color:#0f172a
+    classDef ig fill:#fffbeb,stroke:#d97706,stroke-width:2px,color:#0f172a
+
+    class H1,H2,H3 surface
+    class S1,S2,S3 shirudo
+    class G1,G2,G3 ig
