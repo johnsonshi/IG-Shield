@@ -1,0 +1,108 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 1040" width="880" height="1040" role="img" aria-labelledby="title desc">
+  <title id="title">How Upstream Inspektor Gadget Works: OCI Catalog &amp; Control Matrix</title>
+  <desc id="desc">Diagram showing OCI gadget packaging, the distinction between official stock gadgets (including the four pinned gadgets trace_open, trace_exec, traceloop, advise_seccomp), third-party community gadgets, and IG operators/trust layers, followed by a three-bucket coverage matrix across the five Shirudo controls.</desc>
+  <defs>
+    <style>
+      .bg { fill: #f8fafc; }
+      .title { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 23px; font-weight: 700; fill: #0f172a; }
+      .subtitle { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 14.5px; font-weight: 500; fill: #475569; }
+      .sec-title { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 16.5px; font-weight: 700; fill: #0f172a; }
+      .card-title { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 14.5px; font-weight: 700; fill: #0f172a; }
+      .card-body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 13px; font-weight: 400; fill: #334155; }
+      .card-mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 12px; font-weight: 600; fill: #0f172a; }
+      .pill-text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 12px; font-weight: 700; fill: #ffffff; }
+    </style>
+    <marker id="arrow-blue" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#2563eb" />
+    </marker>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="880" height="1040" rx="14" />
+
+  <!-- Header -->
+  <text class="title" x="440" y="42" text-anchor="middle">How Upstream Inspektor Gadget Works: OCI Catalog &amp; Control Matrix</text>
+  <text class="subtitle" x="440" y="66" text-anchor="middle">Separating official stock gadgets, third-party community gadgets, and what IG can observe, advise, or not cover</text>
+
+  <!-- Section 1: OCI Gadget Taxonomy -->
+  <rect x="28" y="86" width="824" height="236" rx="12" fill="#eff6ff" stroke="#2563eb" stroke-width="2" />
+  <text class="sec-title" x="48" y="114">1. OCI Gadget Packaging &amp; Artifact Hub Catalog Taxonomy (Kind 22)</text>
+
+  <!-- Col 1: Official Stock Gadgets -->
+  <rect x="46" y="128" width="252" height="178" rx="8" fill="#ffffff" stroke="#60a5fa" stroke-width="1.5" />
+  <rect x="60" y="140" width="168" height="22" rx="11" fill="#2563eb" />
+  <text class="pill-text" x="144" y="155" text-anchor="middle">Official Stock Gadgets</text>
+  <text class="card-mono" x="60" y="180">inspektor-gadget/gadgets/*</text>
+  <text class="card-body" x="60" y="200">• Built &amp; signed in-tree on GHCR</text>
+  <text class="card-body" x="60" y="219">• Artifact Hub: verified_publisher</text>
+  <text class="card-body" x="60" y="236">  true, official false (0.57.0 listing</text>
+  <text class="card-body" x="60" y="253">  can lag v0.58.0 runtime pin)</text>
+  <text class="card-body" x="60" y="272">• Four pinned in lab/pins.json:</text>
+  <text class="card-body" x="60" y="288">  trace_open, trace_exec,</text>
+  <text class="card-body" x="60" y="302">  traceloop, advise_seccomp</text>
+
+  <!-- Col 2: Third-Party Community Gadgets -->
+  <rect x="314" y="128" width="252" height="178" rx="8" fill="#ffffff" stroke="#94a3b8" stroke-width="1.5" />
+  <rect x="328" y="140" width="192" height="22" rx="11" fill="#475569" />
+  <text class="pill-text" x="424" y="155" text-anchor="middle">Third-Party Community</text>
+  <text class="card-mono" x="328" y="180">External OCI Registries</text>
+  <text class="card-body" x="328" y="202">• Authored outside upstream repo</text>
+  <text class="card-body" x="328" y="220">  with ig image build</text>
+  <text class="card-body" x="328" y="242">• Bundles eBPF ELF + gadget.yaml</text>
+  <text class="card-body" x="328" y="260">  + optional WASM module</text>
+  <text class="card-body" x="328" y="282">• Requires user-supplied keys;</text>
+  <text class="card-body" x="328" y="298">  not evaluated in this benchmark</text>
+
+  <!-- Col 3: IG Runner, Operators & Verification -->
+  <rect x="582" y="128" width="252" height="178" rx="8" fill="#ffffff" stroke="#5eead4" stroke-width="1.5" />
+  <rect x="596" y="140" width="204" height="22" rx="11" fill="#0d9488" />
+  <text class="pill-text" x="698" y="155" text-anchor="middle">IG Runner &amp; Trust Layers</text>
+  <text class="card-mono" x="596" y="180">ig / gadgettracermanager</text>
+  <text class="card-body" x="596" y="202">• Operators enrich events (oci,</text>
+  <text class="card-body" x="596" y="220">  ebpf, sockets, paths, K8s)</text>
+  <text class="card-body" x="596" y="242">• Archive: release attestation</text>
+  <text class="card-body" x="596" y="262">• OCI: default cosign vs IG key</text>
+  <text class="card-body" x="596" y="282">• Pinned exact OCI digests in</text>
+  <text class="card-body" x="596" y="298">  lab/pins.json (distinct layers)</text>
+
+  <!-- Arrow down to Section 2 -->
+  <line x1="440" y1="322" x2="440" y2="352" stroke="#2563eb" stroke-width="2.5" marker-end="url(#arrow-blue)" />
+
+  <!-- Section 2: Three-Bucket Honesty Matrix -->
+  <rect x="28" y="358" width="824" height="654" rx="12" fill="#ffffff" stroke="#cbd5e1" stroke-width="2" />
+  <text class="sec-title" x="48" y="388">2. Stock v0.58.0 Inspektor Gadget Coverage Across the Five Controls (Not All 3rd-Party)</text>
+
+  <!-- Bucket 1: Observe -->
+  <rect x="46" y="406" width="788" height="184" rx="10" fill="#ecfdf5" stroke="#059669" stroke-width="1.8" />
+  <rect x="64" y="420" width="218" height="24" rx="12" fill="#059669" />
+  <text class="pill-text" x="173" y="436" text-anchor="middle">Bucket A: Can Observe Live</text>
+  <text class="card-title" x="296" y="437">Process Execs, File Opens &amp; Syscall Flight Recording</text>
+  <text class="card-body" x="64" y="464">• Pinned trace_open correlated exclusive opens of canary.php (1), canary.txt (1), and ENOENT (1); real PHP-FPM</text>
+  <text class="card-body" x="64" y="484">  wrote both files (open/write/close median 14,722 ns OFF vs 28,475 ns ON; 95,328 ns first CLI line median).</text>
+  <text class="card-body" x="64" y="504">• Pinned trace_exec observed 1 new JVM launch; pinned traceloop matched 18 AF_UNIX and 18 AF_ALG unbound</text>
+  <text class="card-body" x="64" y="524">  socket returns (3 warmups + 15 measured; AF_UNIX 2,964/9,751/2,989 ns; AF_ALG 2,483/9,347/2,848 ns).</text>
+  <text class="card-body" x="64" y="546">• Reference source check: v0.58.0 trace_lsm (not pinned in suite) exports only time, process, and hook name</text>
+  <text class="card-body" x="64" y="566">  (includes file_open, omits socket_create/socket_connect, has no AF or errno field, and always returns 0).</text>
+
+  <!-- Bucket 2: Advise / Audit -->
+  <rect x="46" y="606" width="788" height="154" rx="10" fill="#fffbeb" stroke="#d97706" stroke-width="1.8" />
+  <rect x="64" y="620" width="268" height="24" rx="12" fill="#d97706" />
+  <text class="pill-text" x="198" y="636" text-anchor="middle">Bucket B: Can Advise / Audit Policy</text>
+  <text class="card-title" x="346" y="637">Seccomp Profile Generation &amp; Audit Log Streaming</text>
+  <text class="card-body" x="64" y="664">• Pinned advise_seccomp generated a candidate seccomp profile (default SCMP_ACT_ERRNO, allows_openat=true,</text>
+  <text class="card-body" x="64" y="684">  allows_socket=true, applied=false). Reference v0.58.0 audit_seccomp streams existing seccomp filter logs.</text>
+  <text class="card-body" x="64" y="704">• Neither advise_seccomp nor audit_seccomp denies syscalls itself; blocking requires applying an external</text>
+  <text class="card-body" x="64" y="724">  seccomp profile in the container runtime or using an inline kernel LSM shield.</text>
+
+  <!-- Bucket 3: Not Covered -->
+  <rect x="46" y="776" width="788" height="216" rx="10" fill="#fef2f2" stroke="#dc2626" stroke-width="1.8" />
+  <rect x="64" y="790" width="280" height="24" rx="12" fill="#dc2626" />
+  <text class="pill-text" x="204" y="806" text-anchor="middle">Bucket C: Not Covered by Stock IG</text>
+  <text class="card-title" x="358" y="807">Inline Kernel Refusal, Inside-JVM Guards &amp; TPM State Sealing</text>
+  <text class="card-body" x="64" y="834">• Synchronous in-kernel blocking: no stock v0.58.0 gadget returns -EACCES (on canary.php) or -EPERM</text>
+  <text class="card-body" x="64" y="854">  (on unbound AF_ALG socket creation) inside a kernel LSM hook.</text>
+  <text class="card-body" x="64" y="878">• Inside-JVM controls (java-base64 &amp; java-sql-inj): stock IG can trace JVM execs and file opens, but</text>
+  <text class="card-body" x="64" y="898">  does not attach bytecode guards to Base64$Decoder.decode0 or JDBC Statement SQL queries inside the JVM.</text>
+  <text class="card-body" x="64" y="922">• In-kernel keyring sealing &amp; hardware TPM state attestation (basic): GitHub release attestation (release/v0.2),</text>
+  <text class="card-body" x="64" y="942">  default cosign publisher verification, and OCI digest pins operate in userspace and do not seal</text>
+  <text class="card-body" x="64" y="962">  the kernel .bpf keyring, deny unsigned host BPF loads globally, or extend vTPM NV index 0x01818E00.</text>
+</svg>

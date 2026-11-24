@@ -1,0 +1,30 @@
+flowchart TB
+    subgraph CATALOG["1. Upstream Inspektor Gadget OCI Packaging & Catalog Taxonomy"]
+        direction LR
+        C1["Official Stock Gadgets<br/>inspektor-gadget/gadgets/*<br/>• Built & signed in-tree (GHCR)<br/>• Artifact Hub kind 22: verified<br/>  publisher=true, official=false<br/>  (catalog 0.57.0 lags v0.58.0)<br/>• Lab pins: trace_open, trace_exec,<br/>  traceloop, advise_seccomp"]
+        C2["Third-Party Community Gadgets<br/>External OCI Registries<br/>• Built outside upstream repo<br/>  via ig image build<br/>• Bundles eBPF ELF + gadget.yaml<br/>  + optional WASM module<br/>• Verified with author keys/digests"]
+        C3["IG Operators & Trust Layers<br/>ig / gadgettracermanager<br/>• Operators enrich events (oci,<br/>  ebpf, socketenricher, paths)<br/>• Binary: release attestation v0.2<br/>• Gadgets: default cosign check<br/>• Lab pins: exact OCI digests"]
+    end
+
+    subgraph MAP["2. Stock v0.58.0 Coverage Across the Five Controls (Not All 3rd-Party Gadgets)"]
+        direction LR
+        M1["Bucket A: Observe Activity<br/>• trace_open: canary.php=1, canary.txt=1,<br/>  ENOENT=1 (14,722 ns OFF vs 28,475 ns<br/>  ON median; 95,328 ns CLI delivery)<br/>• trace_exec: 1 JVM exec event<br/>• traceloop: 18 AF_UNIX & 18 AF_ALG<br/>  socket returns (9,751 / 9,347 ns ON)"]
+        M2["Bucket B: Advise / Audit Only<br/>• advise_seccomp: suggested profile<br/>  (default SCMP_ACT_ERRNO, allows<br/>  openat & socket; applied=false)<br/>• Reference audit_seccomp streams<br/>  events from existing filters<br/>• Neither gadget denies syscalls"]
+        M3["Bucket C: Not Covered by Stock IG<br/>• Synchronous inline EACCES or<br/>  EPERM refusal in LSM hooks<br/>• Inside-JVM Base64 decode or<br/>  JDBC Statement bytecode guards<br/>• Initrd-sealed .bpf keyring or<br/>  vTPM NV 0x01818E00 attestation"]
+    end
+
+    CATALOG --> MAP
+
+    classDef stock fill:#eff6ff,stroke:#2563eb,stroke-width:2px,color:#0f172a
+    classDef comm fill:#f8fafc,stroke:#475569,stroke-width:2px,color:#0f172a
+    classDef op fill:#f0fdf4,stroke:#0d9488,stroke-width:2px,color:#0f172a
+    classDef obs fill:#ecfdf5,stroke:#059669,stroke-width:2px,color:#0f172a
+    classDef adv fill:#fffbeb,stroke:#d97706,stroke-width:2px,color:#0f172a
+    classDef gap fill:#fef2f2,stroke:#dc2626,stroke-width:2px,color:#0f172a
+
+    class C1 stock
+    class C2 comm
+    class C3 op
+    class M1 obs
+    class M2 adv
+    class M3 gap
