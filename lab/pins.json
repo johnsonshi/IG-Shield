@@ -1,0 +1,27 @@
+{
+  "schema": 1,
+  "release": "v0.58.0",
+  "commit": "461906a52de982c1b1ad80f9c2faaa9595c47550",
+  "archive_sha256": "0184366d05b73da8fd25643fa468d373b8557f80744e4e701f8bd69b0741c1ae",
+  "ig_sha256": "d7288b8da2e064f65128d493cd74e59ac411bdb8c180edb75d147fd432dc8173",
+  "release_key_sha256": "d4df2fa75d0d128a92388670564aedcc12c12c11f81dd628ca822045596236bc",
+  "registry": "ghcr.io/inspektor-gadget/gadget",
+  "gadgets": {
+    "trace_open": {
+      "index": "sha256:15ee9712b5bd868d7fdd576f358b646941c70e647ea75f704ddb3b6d1a7ca0dd",
+      "linux_amd64": "sha256:69074c680e1fd9b55a4d97e7fe7aa3615dc33d88bceba4bd6db1a50ba6ee8858"
+    },
+    "trace_exec": {
+      "index": "sha256:85ac5d92fd80ae06a341fa487878a7c64b20724c64690b89adcef5bb4d35be22",
+      "linux_amd64": "sha256:4088e8b09ef3dad140a9c3485337532c0aa1604e982522df5aebe013e51bdabf"
+    },
+    "traceloop": {
+      "index": "sha256:d0202ba832f079c18860410144692d10356ac1392d2af6b074f511efa13a0e37",
+      "linux_amd64": "sha256:177da4259159cfabe4f87f53d8bf9269037ee0c79c126b449b93238bc0db041b"
+    },
+    "advise_seccomp": {
+      "index": "sha256:415bbfd84bdcf3d234c83b74a4b964975ad77e4ef078f45ebd181ec6035d4ff3",
+      "linux_amd64": "sha256:ce988634c63fb50ad86393d2e76fbfe973ef7a026f1fc0f4f019d124d56ddd68"
+    }
+  }
+}

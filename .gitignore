@@ -1,0 +1,11 @@
+.env
+.env.*
+!.env.example
+.state/
+.scratch/
+*.log
+*.pem
+*.key
+*.pub
+__pycache__/
+.DS_Store

@@ -1,0 +1,173 @@
+{
+  "schema": 1,
+  "utc_day": "2026-11-24",
+  "pins_sha256": "3d5b3bbdde7ac19500d5813322043506ac8bab12fdcea481d5ed92e551202ec4",
+  "kernel": "7.0.0-1021-azure",
+  "os": "26.04",
+  "packages": {
+    "openjdk-25-jdk-headless": "25.0.5.1+2-1~26.04.1",
+    "libh2-java": "2.2.220-1build1",
+    "php8.5-fpm": "8.5.4-0ubuntu1.6"
+  },
+  "seccomp_mode": 2,
+  "af_alg_restrict": null,
+  "fixture_cpu": 0,
+  "unprivileged_host": {
+    "unix": "allowed",
+    "alg": "allowed"
+  },
+  "files": {
+    "before": [
+      "written",
+      "written",
+      "ENOENT"
+    ],
+    "during": [
+      "written",
+      "written",
+      "ENOENT"
+    ],
+    "events": {
+      "canary.php": 1,
+      "canary.txt": 1,
+      "ENOENT": 1
+    },
+    "after": [
+      "written",
+      "written",
+      "ENOENT"
+    ]
+  },
+  "jvm": {
+    "before": {
+      "decode": "control",
+      "read": 7,
+      "false_predicate": "empty"
+    },
+    "during": {
+      "decode": "control",
+      "read": 7,
+      "false_predicate": "empty"
+    },
+    "exec_events": 1,
+    "after": {
+      "decode": "control",
+      "read": 7,
+      "false_predicate": "empty"
+    }
+  },
+  "sockets": {
+    "before": {
+      "unix": {
+        "outcome": "allowed",
+        "median_ns": 2964
+      },
+      "alg": {
+        "outcome": "allowed",
+        "median_ns": 2483
+      }
+    },
+    "during": {
+      "unix": {
+        "outcome": "allowed",
+        "median_ns": 9751
+      },
+      "alg": {
+        "outcome": "allowed",
+        "median_ns": 9347
+      }
+    },
+    "matching_events": {
+      "unix": 18,
+      "alg": 18
+    },
+    "after": {
+      "unix": {
+        "outcome": "allowed",
+        "median_ns": 2989
+      },
+      "alg": {
+        "outcome": "allowed",
+        "median_ns": 2848
+      }
+    }
+  },
+  "advice": {
+    "default": "SCMP_ACT_ERRNO",
+    "allows_openat": true,
+    "allows_socket": true,
+    "applied": false
+  },
+  "timing": {
+    "n": 15,
+    "warmups": 3,
+    "clock": "CLOCK_MONOTONIC",
+    "units": "ns",
+    "timeout_ns": 2000000000,
+    "off": [
+      14722,
+      13503,
+      58150,
+      24919,
+      67986,
+      61377,
+      16401,
+      12911,
+      101276,
+      18746,
+      12502,
+      10508,
+      10728,
+      13117,
+      11521
+    ],
+    "on": [
+      55602,
+      28506,
+      27574,
+      25112,
+      24706,
+      26841,
+      102236,
+      52236,
+      34079,
+      28475,
+      28839,
+      24855,
+      23407,
+      25310,
+      101595
+    ],
+    "first_open_event": [
+      99758,
+      103721,
+      66450,
+      103172,
+      58498,
+      95328,
+      150655,
+      99721,
+      67725,
+      98729,
+      59557,
+      81521,
+      54052,
+      81638,
+      152555
+    ]
+  },
+  "lifecycle": {
+    "power": "deallocated",
+    "original_os_disk": "retained_and_bound",
+    "disk_state": "Reserved"
+  },
+  "azure": {
+    "region": "westus3",
+    "size": "Standard_D4ds_v5",
+    "image": "Canonical:ubuntu-26_04-lts:server:26.04.202611100",
+    "secure_boot": true,
+    "vtpm": true,
+    "inbound": "deny_all",
+    "internet_egress": "tcp_443"
+  }
+}
