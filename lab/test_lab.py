@@ -3,6 +3,8 @@ import copy
 import gzip
 import json
 from pathlib import Path
+import subprocess
+import tempfile
 from unittest import TestCase, main
 from unittest.mock import patch
 
@@ -45,6 +47,22 @@ class Evidence(TestCase):
 
 
 class Ownership(TestCase):
+    def test_guest_inputs_never_follow_worktree_files(self):
+        expected = azure.measured_blob("fixture.py")
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp) / "test-clone"
+            subprocess.run(["git", "clone", "--quiet", "--no-checkout", "--local", str(azure.ROOT), repo], check=True)
+            (repo / "lab").mkdir()
+            fake = repo / "private-local-data"
+            fake.write_text("never transport this")
+            (repo / "lab/fixture.py").symlink_to(fake)
+            with patch.object(azure, "ROOT", repo):
+                self.assertEqual(azure.measured_blob("fixture.py"), expected)
+                with self.assertRaises(RuntimeError):
+                    azure.measured_blob("../private-local-data")
+                with self.assertRaises(RuntimeError):
+                    azure.guest({}, "unmeasured")
+
     def test_reserved_is_bound_not_unattached(self):
         disk = {"id": "disk", "managedBy": "vm", "diskState": "Reserved"}
         azure.verify_disk({"disk": "disk"}, {"id": "vm"}, disk)
@@ -82,7 +100,7 @@ class Ownership(TestCase):
     def test_zero_exit_without_guest_marker_is_failure(self):
         with patch.object(azure, "guard"), patch.object(azure, "az", return_value={"value": [{"message": "Enable succeeded"}]}), \
                 patch("pathlib.Path.write_text"), self.assertRaises(RuntimeError):
-            azure.guest({"subscription": "s", "group": "g", "vm": "v"}, [], "true", "IG_PREPARED")
+            azure.guest({"subscription": "s", "group": "g", "vm": "v"}, "prepare")
 
 
 class Privacy(TestCase):

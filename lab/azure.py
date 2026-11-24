@@ -15,11 +15,32 @@ OWNER = STATE / "owner.json"
 REGION = "westus3"
 SIZE = "Standard_D4ds_v5"
 IMAGE = "Canonical:ubuntu-26_04-lts:server:26.04.202611100"
+PAYLOAD_REV = "fb131298906015020fef618584bd56ed0c6aa537"
+JOBS = {
+    "prepare": (("prepare.sh", "pins.json"), "bash prepare.sh", "IG_PREPARED"),
+    "measure": (("measure.py", "fixture.py", "Control.java", "pins.json"), "timeout 240 python3 measure.py", "IG_RECEIPT="),
+}
+INPUTS = {"cloud-init.yml"} | {name for files, _, _ in JOBS.values() for name in files}
 
 
 def require(value, reason):
     if not value:
         raise RuntimeError(reason)
+
+
+def measured_blob(name):
+    require(name in INPUTS, "Not a measured guest input")
+    path = "lab/" + name
+    git = ["git", "--no-replace-objects", "-C", ROOT]
+    entry = subprocess.check_output([*git, "ls-tree", "-lz", PAYLOAD_REV, "--", path])
+    meta, _, found = entry.partition(b"\t")
+    require(found == os.fsencode(path) + b"\0", "Missing or ambiguous measured guest input")
+    mode, kind, oid, size = meta.split()
+    require(mode in (b"100644", b"100755") and kind == b"blob" and 0 < int(size) <= 32768,
+            "Expected bounded regular blob at measured commit")
+    data = subprocess.check_output([*git, "cat-file", "blob", oid])
+    require(len(data) == int(size), "Measured blob size changed")
+    return data
 
 
 def subscription():
@@ -75,6 +96,7 @@ def guard(s, bind=False):
 
 def create():
     require(not OWNER.exists(), "Local ownership file exists; refuse to adopt or replace")
+    cloud_init = measured_blob("cloud-init.yml")
     sub = az(subscription(), "account", "show")["id"]
     nonce = secrets.token_hex(16)
     pfx = "igl" + nonce[:10]
@@ -113,11 +135,13 @@ def create():
         key = Path(folder) / "bootstrap"
         subprocess.run(["ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-C", "unused", "-f", key], check=True)
         key.unlink()
+        init_path = Path(folder) / "cloud-init.yml"
+        init_path.write_bytes(cloud_init)
         make("vm create", "-n", vm, "-l", REGION, "--size", SIZE, "--image", IMAGE, "--nics", nic,
              "--admin-username", pfx + "admin", "--authentication-type", "ssh", "--ssh-key-values", str(key)+".pub",
              "--security-type", "TrustedLaunch", "--enable-secure-boot", "true", "--enable-vtpm", "true",
              "--os-disk-name", pfx + "-os", "--os-disk-delete-option", "Detach",
-             "--storage-sku", "StandardSSD_LRS", "--custom-data", str(ROOT / "lab/cloud-init.yml"), *tags)
+             "--storage-sku", "StandardSSD_LRS", "--custom-data", str(init_path), *tags)
     guard(s, bind=True)
     print("Created and bound one owned VM; resource names are only in .state/owner.json.")
 
@@ -192,12 +216,14 @@ def isolation(s):
             "inbound": "deny_all", "internet_egress": "tcp_443"}
 
 
-def guest(s, files, command, marker):
+def guest(s, job):
+    require(job in JOBS, "Unknown guest operation")
+    files, command, marker = JOBS[job]
     guard(s)
     lines = ["set -eu", "umask 077", "export PATH=/usr/sbin:/usr/bin:/sbin:/bin",
              "install -dm700 /opt/ig-validation", "cd /opt/ig-validation"]
     for name in files:
-        data = base64.b64encode(gzip.compress((ROOT / "lab" / name).read_bytes(), mtime=0)).decode()
+        data = base64.b64encode(gzip.compress(measured_blob(name), mtime=0)).decode()
         lines.append(f"printf %s '{data}' | base64 -d | gzip -d > '{name}'")
     lines.append(command)
     msg = az(s["subscription"], "vm", "run-command", "invoke", "-g", s["group"], "-n", s["vm"],
@@ -229,7 +255,7 @@ def main():
         require(power(s) == "running", "Start not confirmed")
     elif act == "prepare":
         isolation(s)
-        suffix = guest(s, ["prepare.sh", "pins.json"], "bash prepare.sh", "IG_PREPARED")
+        suffix = guest(s, "prepare")
         require(suffix in ("", "_REBOOT"), "Unexpected preparation status")
         if suffix == "_REBOOT":
             change(s, "restart")
@@ -241,8 +267,7 @@ def main():
             if power(s) == "deallocated":
                 change(s, "start")
             require(power(s) == "running", "VM not running")
-            result = guest(s, ["measure.py", "fixture.py", "Control.java", "pins.json"],
-                           "timeout 240 python3 measure.py", "IG_RECEIPT=")
+            result = guest(s, "measure")
             receipt = decode(result)
         finally:
             disk_state = park(s)
